@@ -101,9 +101,17 @@ while running:
             running = False
 
     last_node = current_path[-1]
+    new_node_counter = 0
     while(True):
         new_node = (last_node[0] + randint(-1, 1), last_node[1] + randint(-1, 1))
         new_node_cartesian = grid_to_cartesian(new_node, cell_size)
+        #TODO: CHECK IF THE PATH IS STUCK
+        #TODO: BACKTRACKING
+        new_node_counter += 1
+        if new_node_counter > 1000:
+            print("Stuck!")
+            break
+        
         if new_node_cartesian[0] >= 0 and new_node_cartesian[0] <= width and new_node_cartesian[1] >= 0 and new_node_cartesian[1] <= height and not (new_node in current_path) and is_node_free(new_node, grid):
             current_path.append(new_node)
             #print("new_node = ", str(new_node))
