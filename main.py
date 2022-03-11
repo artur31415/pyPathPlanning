@@ -27,11 +27,16 @@ grid = []
 grid_width = 70
 grid_height = 70
 
+
 cell_size = 10
 
 current_path = [(35, 35)]
 
+goal_position = (60, 60)
+
 clock = pygame.time.Clock()
+
+neighbors = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 ################################################################################################
 #                                           FUNCTIONS
 ################################################################################################
@@ -49,6 +54,8 @@ def init_grid():
                 grid_value = randint(0, 1)
 
             grid[i].append(grid_value)
+
+    grid[goal_position[0]][goal_position[1]] = 0
 
 def draw_grid(DISPLAY):
     for i in range(grid_width):
@@ -83,14 +90,37 @@ def draw_path(DISPLAY, path):
 
         pygame.draw.circle(DISPLAY, path_node_color, path_node_cartesian, path_node_radius)
 
+def draw_goal(DISPLAY):
+    goal_position_cartesian = grid_to_cartesian(goal_position, cell_size)
+    pygame.draw.circle(DISPLAY, (255, 100, 0), goal_position_cartesian, cell_size / 4)
+
 def is_node_free(path_node, world_grid):
     return world_grid[int(path_node[0])][int(path_node[1])] == 0
 
 def grid_to_cartesian(path_node, factor):
     return (path_node[0] * factor, path_node[1] * factor)
 
+def distance_heuristics(current_node, goal_node):
+    return abs(goal_node[0] - current_node[0]) + abs(goal_node[1] - current_node[1])
+
+#TODO: REMOVE STUCK NODE, BACKTRACKING
 def a_star():
-    
+    last_node = current_path[-1]
+    least_distance = -1
+    least_distance_node = (-1, -1)
+    for neighbor in neighbors:
+        new_node = (last_node[0] + neighbor[0], last_node[1] + neighbor[1])
+        new_node_cartesian = grid_to_cartesian(new_node, cell_size)
+
+        if new_node_cartesian[0] >= 0 and new_node_cartesian[0] < width and new_node_cartesian[1] >= 0 and new_node_cartesian[1] < height and not (new_node in current_path) and is_node_free(new_node, grid):
+            d = distance_heuristics(new_node, goal_position)
+            if least_distance == -1 or d < least_distance:
+                least_distance = d
+                least_distance_node = new_node
+
+    if least_distance != -1:
+        current_path.append(least_distance_node)
+
 
 def random_walker():
     last_node = current_path[-1]
@@ -126,8 +156,8 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-    random_walker()
-
+    #random_walker()
+    a_star()
     ##################################################################
     # DRAW CODE
     ##################################################################
@@ -137,6 +167,8 @@ while running:
 
     draw_grid(screen)
     draw_path(screen, current_path)
+    draw_goal(screen)
+
     ##################################################################
     # Flip the display
     ##################################################################
