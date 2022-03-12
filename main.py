@@ -30,13 +30,16 @@ grid_height = 70
 
 cell_size = 10
 
-current_path = [(35, 35)]
+current_path = [(randint(0, 35), randint(0, 35))]
 
-goal_position = (60, 60)
+goal_position = (randint(60, 69), randint(60, 69))
 
 clock = pygame.time.Clock()
 
 neighbors = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+is_complete = False
+stuck_nodes = []
 ################################################################################################
 #                                           FUNCTIONS
 ################################################################################################
@@ -55,6 +58,7 @@ def init_grid():
 
             grid[i].append(grid_value)
 
+    grid[current_path[0][0]][current_path[0][1]] = 0
     grid[goal_position[0]][goal_position[1]] = 0
 
 def draw_grid(DISPLAY):
@@ -92,7 +96,13 @@ def draw_path(DISPLAY, path):
 
 def draw_goal(DISPLAY):
     goal_position_cartesian = grid_to_cartesian(goal_position, cell_size)
+    goal_position_cartesian = (goal_position_cartesian[0] + cell_size / 2, goal_position_cartesian[1] + cell_size / 2)
     pygame.draw.circle(DISPLAY, (255, 100, 0), goal_position_cartesian, cell_size / 4)
+
+def draw_stuck_nodes(DISPLAY, nodes):
+    for node in nodes:
+        node_cartesian = grid_to_cartesian(node, cell_size)
+        pygame.draw.rect(DISPLAY, (100, 0, 0), (node_cartesian[0], node_cartesian[1], cell_size, cell_size))
 
 def is_node_free(path_node, world_grid):
     return world_grid[int(path_node[0])][int(path_node[1])] == 0
@@ -103,24 +113,48 @@ def grid_to_cartesian(path_node, factor):
 def distance_heuristics(current_node, goal_node):
     return abs(goal_node[0] - current_node[0]) + abs(goal_node[1] - current_node[1])
 
-#TODO: REMOVE STUCK NODE, BACKTRACKING
 def a_star():
-    last_node = current_path[-1]
-    least_distance = -1
-    least_distance_node = (-1, -1)
-    for neighbor in neighbors:
-        new_node = (last_node[0] + neighbor[0], last_node[1] + neighbor[1])
-        new_node_cartesian = grid_to_cartesian(new_node, cell_size)
 
-        if new_node_cartesian[0] >= 0 and new_node_cartesian[0] < width and new_node_cartesian[1] >= 0 and new_node_cartesian[1] < height and not (new_node in current_path) and is_node_free(new_node, grid):
-            d = distance_heuristics(new_node, goal_position)
-            if least_distance == -1 or d < least_distance:
-                least_distance = d
-                least_distance_node = new_node
+    global stuck_nodes
 
-    if least_distance != -1:
-        current_path.append(least_distance_node)
+    if len(current_path) > 0 and current_path[-1] == goal_position:
+        print("COMPLETE!")
+        return True
+    
 
+    while True:
+        last_node = current_path[-1]
+        least_distance = -1
+        least_distance_node = (-1, -1)
+
+        for neighbor in neighbors:
+            is_new_node_new = True
+            new_node = (last_node[0] + neighbor[0], last_node[1] + neighbor[1])
+            new_node_cartesian = grid_to_cartesian(new_node, cell_size)
+
+            for stuck_node in stuck_nodes:
+                if new_node == stuck_node:
+                    is_new_node_new = False
+                    break
+            
+            if not is_new_node_new:
+                continue
+
+            if new_node_cartesian[0] >= 0 and new_node_cartesian[0] < width and new_node_cartesian[1] >= 0 and new_node_cartesian[1] < height and not (new_node in current_path) and is_node_free(new_node, grid):
+                d = distance_heuristics(new_node, goal_position)
+                if least_distance == -1 or d < least_distance:
+                    least_distance = d
+                    least_distance_node = new_node
+
+        if least_distance != -1:
+            current_path.append(least_distance_node)
+            break
+        else:
+            print("a_star: STUCK!!!")
+            stuck_nodes.append(current_path[-1])
+            del current_path[-1]
+
+    return False
 
 def random_walker():
     last_node = current_path[-1]
@@ -144,37 +178,64 @@ def random_walker():
             #print("new_node = ", str(new_node))
             break
 
+def init_path_and_goal():
+    global current_path
+    global goal_position
+    global stuck_nodes
+
+    current_path = [(randint(0, 35), randint(0, 35))]
+    goal_position = (randint(60, 69), randint(60, 69))
+    stuck_nodes.clear()
+
 ################################################################################################
 #                                           MAIN LOOP
 ################################################################################################
 
+init_path_and_goal()
 init_grid()
 
 while running:
 
+    ##################################################################
+    # EVENTS
+    ##################################################################
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_r:
+                init_path_and_goal()
+                init_grid()
+
+    ##################################################################
+    # STATE UPDATE
+    ##################################################################
+
     #random_walker()
-    a_star()
+    is_complete = a_star()
     ##################################################################
     # DRAW CODE
     ##################################################################
 
-    # textsurface = myfont.render('Ticks = ' + str(ticks), False, (0, 0, 0))
-    # screen.blit(textsurface, (0, 0))
-
+    
     draw_grid(screen)
+    draw_stuck_nodes(screen, stuck_nodes)
     draw_path(screen, current_path)
     draw_goal(screen)
+
+    if is_complete:
+        pygame.draw.rect(screen, (255, 255, 255), (20, 20, 500, 30))
+        textsurface = myfont.render('A* FINISHED with ' + str(len(current_path)) + ' nodes!', False, (0, 0, 0))
+        screen.blit(textsurface, (20, 20))
+
 
     ##################################################################
     # Flip the display
     ##################################################################
     pygame.display.flip()
 
-    clock.tick(10)
+    clock.tick(30)
     
 
 # Done! Time to quit.
